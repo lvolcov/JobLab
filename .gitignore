@@ -1,0 +1,33 @@
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Node
+node_modules/
+.vite/
+dist/
+.next/
+coverage/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+.playwright/

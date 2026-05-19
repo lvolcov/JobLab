@@ -1,0 +1,113 @@
+/* joblab — global styles
+ * Purpose: Tailwind base, design tokens, a few primitive utility classes.
+ * Created: 2026-05-19
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg: 248 250 252;          /* slate-50  */
+    --surface: 255 255 255;     /* white      */
+    --surface-2: 241 245 249;   /* slate-100  */
+    --border: 226 232 240;      /* slate-200  */
+    --text: 15 23 42;           /* slate-900  */
+    --muted: 71 85 105;         /* slate-600  */
+  }
+  .dark {
+    --bg: 2 6 23;               /* slate-950  */
+    --surface: 15 23 42;        /* slate-900  */
+    --surface-2: 30 41 59;      /* slate-800  */
+    --border: 30 41 59;         /* slate-800  */
+    --text: 241 245 249;        /* slate-100  */
+    --muted: 148 163 184;       /* slate-400  */
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply font-sans antialiased;
+    background-color: rgb(var(--bg));
+    color: rgb(var(--text));
+  }
+  *,
+  *::before,
+  *::after {
+    border-color: rgb(var(--border));
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .surface {
+    background-color: rgb(var(--surface));
+    border: 1px solid rgb(var(--border));
+    @apply rounded-2xl shadow-soft;
+  }
+  .surface-muted {
+    background-color: rgb(var(--surface-2));
+  }
+  .text-muted {
+    color: rgb(var(--muted));
+  }
+  .input-base {
+    @apply w-full rounded-lg border bg-transparent px-3 py-2 text-sm
+           outline-none transition-colors duration-150
+           focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30;
+    border-color: rgb(var(--border));
+  }
+  .label-base {
+    @apply mb-1 block text-sm font-medium;
+    color: rgb(var(--muted));
+  }
+  .btn {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2
+           rounded-lg px-4 py-2 text-sm font-semibold
+           transition-colors duration-150
+           disabled:cursor-not-allowed disabled:opacity-50
+           focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+  .btn-primary {
+    @apply btn bg-brand-600 text-white hover:bg-brand-700
+           focus:ring-brand-500/40;
+  }
+  .btn-accent {
+    @apply btn bg-accent-500 text-white hover:bg-accent-600
+           focus:ring-accent-500/40;
+  }
+  .btn-ghost {
+    @apply btn hover:bg-slate-100 dark:hover:bg-slate-800;
+    color: rgb(var(--text));
+  }
+  .btn-outline {
+    @apply btn border bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800;
+    color: rgb(var(--text));
+    border-color: rgb(var(--border));
+  }
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500/40;
+  }
+  .chip {
+    @apply inline-flex items-center rounded-full border px-2 py-0.5
+           text-xs font-medium;
+    background-color: rgb(var(--surface-2));
+    color: rgb(var(--muted));
+    border-color: rgb(var(--border));
+  }
+  .link {
+    @apply text-brand-600 underline-offset-2 hover:underline dark:text-brand-400;
+  }
+}

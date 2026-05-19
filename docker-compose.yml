@@ -1,0 +1,77 @@
+# joblab — Docker Compose stack
+# Purpose: bring up db (Postgres 16), api (FastAPI), web (Vite/React) for local dev.
+# Created: 2026-05-19
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      FERNET_KEY: ${FERNET_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      JOBLAB_TEST_MODE: ${JOBLAB_TEST_MODE:-0}
+    ports:
+      - "${API_PORT}:8000"
+    volumes:
+      - ./api:/app
+      - ./scripts:/app/scripts:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+    ports:
+      - "${WEB_PORT}:5173"
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5173"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+volumes:
+  db_data:
