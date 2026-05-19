@@ -81,8 +81,7 @@ joblab/
 │   └── ui-spec.md                 # design tokens, components, page-by-page
 ├── scripts/
 │   ├── gen_fernet_key.py          # generate FERNET_KEY for .env
-│   ├── seed_admin.py              # create/promote/reactivate admin from .env
-│   └── reset_db.sh                # drop public schema, re-migrate, re-seed
+│   └── seed_admin.py              # create/promote/reactivate admin from .env
 ├── api/
 │   ├── Dockerfile                 # python:3.12-slim, uv-managed deps, non-root user
 │   ├── pyproject.toml             # runtime + dev deps
@@ -238,8 +237,13 @@ cd web && pnpm install && pnpm test:e2e  # frontend (after pnpm test:e2e:install
 - **Admin self-lockout.** The backend now blocks self-deactivate and
   last-admin self-demote — don't remove those guards. Self-delete was always
   blocked.
-- **Reset DB.** `scripts/reset_db.sh` drops the `public` schema and re-runs
-  migrations. Use it before Playwright e2e to get a known state.
+- **NEVER reset the database.** There is no `reset_db.sh` and there must not
+  be one. The DB holds real user data (CVs, applications, keys) and is
+  off-limits as a way to make tests pass. E2E tests are self-isolating: each
+  test creates a fresh, throwaway user via the admin API
+  (`tests/e2e/helpers.ts::createTestUser`) and operates only within that
+  user's scope. Screenshot tests for admin routes mask data-bearing regions
+  (tables, lists) so they're stable regardless of what's in the DB.
 - **CSRF cookie domain.** Local dev uses `localhost` so cookies are visible
   across `:5173` ↔ `:8010`. In production, put api and web behind the same
   hostname (reverse proxy) so the SPA can read the CSRF cookie.

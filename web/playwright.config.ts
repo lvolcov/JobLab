@@ -4,9 +4,10 @@
 // Assumes:
 //   - api is reachable at http://localhost:8010 with JOBLAB_TEST_MODE=1
 //   - web is reachable at http://localhost:5173
-//   - the DB has been reset via scripts/reset_db.sh
+//   - the seeded admin account (admin@example.com) exists
 //
-// Created: 2026-05-19
+// Tests do NOT require a clean DB — each test creates its own isolated user
+// via the admin API (see tests/e2e/helpers.ts::createTestUser).
 
 import { defineConfig, devices } from "@playwright/test";
 

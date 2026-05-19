@@ -75,9 +75,12 @@ cd web
 pnpm install
 pnpm test:e2e:install           # one-off: downloads chromium + system deps
 
-# Reset DB to a known state and turn on the LLM stub adapter.
+# Turn on the LLM stub adapter so generation tests don't hit real providers.
 JOBLAB_TEST_MODE=1 docker compose up -d
-../scripts/reset_db.sh
+
+# Tests do NOT require a clean DB — each test creates a throwaway user via
+# the admin API and operates only within that user's scope. The seeded
+# admin account must exist (see scripts/seed_admin.py).
 
 # First run captures baselines (one per route × theme); subsequent runs verify.
 pnpm test:e2e:update
@@ -89,13 +92,11 @@ so committed baselines survive small font-rendering differences across machines.
 
 ## Daily operations
 
-- **Reset the dev DB:** `scripts/reset_db.sh` (drops `public`, re-runs migrations,
-  re-seeds the admin).
 - **Rotate the Fernet key:** generate a new one, update `.env`, restart `api`,
   then have each user re-enter their keys (old ciphertexts won't decrypt).
 - **Add a new user:** sign in as admin → `Users` → `New user`.
-- **Hand out a shared LLM key:** admin → `Global keys` → add → use the per-row
-  Assign-to-user picker.
+- **Hand out a shared LLM key:** admin → `Global keys` → add. Tick "Premium
+  users only" to restrict it to users with the premium flag.
 
 ## Layout
 
@@ -110,8 +111,7 @@ joblab/
 │   └── ui-spec.md
 ├── scripts/
 │   ├── gen_fernet_key.py
-│   ├── seed_admin.py
-│   └── reset_db.sh
+│   └── seed_admin.py
 ├── api/                       # FastAPI + SQLModel + Alembic
 └── web/                       # React + Vite + Tailwind + Playwright
 ```

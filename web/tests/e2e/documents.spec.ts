@@ -1,19 +1,23 @@
-// Document upload: txt file is parsed and listed.
+// Document upload: txt file is parsed and listed. Uses an isolated test user
+// so no pre-existing DB state is assumed.
 
 import { expect, test } from "@playwright/test";
-import { login } from "./helpers";
+import { API_BASE, createTestUser } from "./helpers";
 
-test("upload a text document and see it listed (via API)", async ({ page, request }) => {
-  await login(page);
+test("upload a text document and see it returned parsed", async ({ page, request }) => {
+  await createTestUser(page);
 
-  // The current UI ships document upload as an API endpoint without a route in
-  // this milestone; verify via the API using the browser context's cookies so
-  // CSRF works.
+  // Upload via the API using the browser context's cookies so CSRF works.
   const cookies = await page.context().cookies();
   const csrf = cookies.find((c) => c.name === "joblab_csrf")?.value ?? "";
 
-  const r = await request.post("http://localhost:8010/documents/upload", {
-    headers: { "x-csrf-token": csrf },
+  // Reuse the browser session cookies for the request context.
+  const session = cookies.find((c) => c.name === "joblab_session")?.value ?? "";
+  const r = await request.post(`${API_BASE}/documents/upload`, {
+    headers: {
+      "x-csrf-token": csrf,
+      cookie: `joblab_session=${session}; joblab_csrf=${csrf}`,
+    },
     multipart: {
       file: {
         name: "note.txt",
