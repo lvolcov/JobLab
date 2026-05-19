@@ -13,18 +13,21 @@ class UserRead(BaseModel):
     is_active: bool
     is_superuser: bool
     is_verified: bool
+    is_premium: bool = False
 
 
 class UserCreate(BaseModel):
     email: str
     password: str = Field(min_length=8)
     is_superuser: bool = False
+    is_premium: bool = False
 
 
 class UserUpdate(BaseModel):
     email: str | None = None
     is_active: bool | None = None
     is_superuser: bool | None = None
+    is_premium: bool | None = None
 
 
 class PasswordReset(BaseModel):

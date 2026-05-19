@@ -30,6 +30,7 @@ class CVUpdate(BaseModel):
 
 class CVRead(CVBase):
     id: UUID
+    possible_duplicate_of_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -57,6 +58,7 @@ class EducationUpdate(BaseModel):
 
 class EducationRead(EducationBase):
     id: UUID
+    possible_duplicate_of_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -82,6 +84,7 @@ class QualificationUpdate(BaseModel):
 
 class QualificationRead(QualificationBase):
     id: UUID
+    possible_duplicate_of_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -105,6 +108,7 @@ class SkillUpdate(BaseModel):
 
 class SkillRead(SkillBase):
     id: UUID
+    possible_duplicate_of_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -134,6 +138,7 @@ class ProjectUpdate(BaseModel):
 
 class ProjectRead(ProjectBase):
     id: UUID
+    possible_duplicate_of_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -163,5 +168,6 @@ class ExperienceUpdate(BaseModel):
 
 class ExperienceRead(ExperienceBase):
     id: UUID
+    possible_duplicate_of_id: UUID | None = None
     created_at: datetime
     updated_at: datetime

@@ -1,6 +1,7 @@
 // Protected layout. Redirects unauthenticated users to /login.
 
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { NoProviderBanner } from "../components/NoProviderBanner";
 import { Sidebar } from "../components/Sidebar";
 import { Topbar } from "../components/Topbar";
 import { Spinner } from "../components/ui";
@@ -29,6 +30,7 @@ export default function ProtectedLayout({ adminOnly = false }: { adminOnly?: boo
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />
+        <NoProviderBanner />
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-8 md:py-8">
           <Outlet />
         </main>

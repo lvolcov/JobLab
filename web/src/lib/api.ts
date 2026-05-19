@@ -89,6 +89,8 @@ export interface Me {
   email: string;
   is_active: boolean;
   is_superuser: boolean;
+  is_premium: boolean;
+  default_provider: LLMProvider | null;
 }
 
 export interface AppUser extends Me {
@@ -102,6 +104,7 @@ export interface LLMKey {
   provider: LLMProvider;
   label: string;
   is_global: boolean;
+  is_premium_only: boolean;
   owner_user_id: UUID | null;
   masked_key: string;
 }
@@ -157,5 +160,23 @@ export interface WikiBaseRow {
   id: UUID;
   created_at: string;
   updated_at: string;
+  possible_duplicate_of_id?: UUID | null;
   [key: string]: unknown;
+}
+
+export interface ImportSummary {
+  inserted: number;
+  skipped_exact: number;
+  flagged_duplicate: number;
+}
+
+export interface ImportResult {
+  cvs: ImportSummary;
+  experiences: ImportSummary;
+  projects: ImportSummary;
+  skills: ImportSummary;
+  qualifications: ImportSummary;
+  education: ImportSummary;
+  provider: LLMProvider;
+  attempts: number;
 }

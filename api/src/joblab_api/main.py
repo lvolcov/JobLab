@@ -20,6 +20,7 @@ from joblab_api.llm.router import user_router as llm_user_router
 from joblab_api.rate_limit import limiter, rate_limit_handler
 from joblab_api.security_middleware import install as install_security
 from joblab_api.users.router import router as admin_users_router
+from joblab_api.wiki.import_router import router as wiki_import_router
 from joblab_api.wiki.router import router as wiki_router
 
 app = FastAPI(title="joblab API", version="0.1.0")
@@ -53,6 +54,7 @@ app.include_router(admin_users_router)
 app.include_router(llm_admin_router)
 app.include_router(llm_user_router)
 app.include_router(wiki_router)
+app.include_router(wiki_import_router)
 app.include_router(documents_router)
 app.include_router(applications_router)
 app.include_router(generation_router)

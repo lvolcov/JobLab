@@ -12,6 +12,8 @@ from uuid import UUID, uuid4
 from sqlalchemy import Column, DateTime
 from sqlmodel import Field, SQLModel
 
+from joblab_api.llm.models import LLMProvider, llm_provider_column
+
 
 class User(SQLModel, table=True):
     """Application user. is_superuser=True grants admin privileges."""
@@ -24,6 +26,10 @@ class User(SQLModel, table=True):
     is_active: bool = Field(default=True, nullable=False)
     is_superuser: bool = Field(default=False, nullable=False)
     is_verified: bool = Field(default=False, nullable=False)
+    is_premium: bool = Field(default=False, nullable=False)
+    default_provider: LLMProvider | None = Field(
+        default=None, sa_column=llm_provider_column(nullable=True)
+    )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), nullable=False),

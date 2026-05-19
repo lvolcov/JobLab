@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from joblab_api.applications.models import Application, ApplicationArtifact
 from joblab_api.documents.models import Document
-from joblab_api.llm.models import LLMKey, LLMKeyAssignment
+from joblab_api.llm.models import LLMKey
 from joblab_api.users.models import User
 from joblab_api.wiki.models import (
     WikiCV,
@@ -23,7 +23,6 @@ from joblab_api.wiki.models import (
 __all__ = [
     "User",
     "LLMKey",
-    "LLMKeyAssignment",
     "WikiCV",
     "WikiEducation",
     "WikiQualification",

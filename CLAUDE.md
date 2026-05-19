@@ -11,9 +11,15 @@ of users, runs entirely in Docker Compose on a laptop or small server.
 
 A user (after admin invites them) builds a **structured wiki** of their career
 — CVs, experiences, projects, skills, qualifications, education, plus uploaded
-documents (pdf/docx/txt/md, parsed to text). They then create an **application**
-record for a role they want to apply for, paste the JD, and the app generates
-**one of four document types** with their choice of LLM provider:
+documents (pdf/docx/txt/md, parsed to text). They can also **import a CV PDF**
+on the wiki page: the file is parsed, sent to their default AI provider with a
+structured-JSON prompt, validated against `ExtractedCV` Pydantic models, and
+each entity is inserted with **exact-skip + fuzzy-dedup**
+(rapidfuzz `token_set_ratio ≥ 85` flags rows via `possible_duplicate_of_id`).
+
+They then create an **application** record for a role they want to apply for,
+paste the JD, and the app generates **one of four document types** with their
+choice of LLM provider:
 
 - `cv` — tailored CV in markdown
 - `cover_letter` — concise letter
@@ -24,9 +30,20 @@ The generation pipeline counts words, retries up to **3 times** if over the
 limit, and persists the result as an `application_artifact` with `attempts`,
 `final_word_count`, and a `warning_flag` if the cap couldn't be met.
 
-LLM keys are Fernet-encrypted at rest. Admins can supply **global keys** and
-assign them to specific users; users can also bring their **own keys**.
-Resolution is "own key first, otherwise an assigned global, otherwise 400".
+LLM keys are Fernet-encrypted at rest. Admins can supply **global keys**,
+optionally flagged `is_premium_only`. Users with `is_premium=True` see all
+global keys; non-premium users only see globals where `is_premium_only=False`.
+Users can also bring their **own keys**. Resolution order: own key first,
+otherwise the most recent visible global, otherwise 400.
+
+Each user picks a `default_provider` in Settings — used by CV import and
+optionally as the pre-filled provider on the generator. A site-wide amber
+banner reminds the user when this is unset; the Settings page also
+auto-selects the first available provider as soon as a working key exists.
+
+Both the Settings page and the admin Global-keys page have a **Test** button
+that probes a candidate key (1-token `generate` call) before saving — works
+without persisting anything, so a bad key never lands in the DB.
 
 ## What this project is **not**
 
@@ -226,6 +243,14 @@ cd web && pnpm install && pnpm test:e2e  # frontend (after pnpm test:e2e:install
 - **CSRF cookie domain.** Local dev uses `localhost` so cookies are visible
   across `:5173` ↔ `:8010`. In production, put api and web behind the same
   hostname (reverse proxy) so the SPA can read the CSRF cookie.
+- **Postgres enums need `values_callable`.** SQLAlchemy by default sends the
+  Python enum *name* (e.g. `OPENAI`) but our Postgres enum types store the
+  *value* (`openai`). Any new enum column MUST be declared with
+  `sa.Enum(MyEnum, name="myenum", values_callable=lambda e: [m.value for m in e])`
+  (see `llm/models.py::llm_provider_column` and
+  `applications/models.py::_enum_col`). Tests using `metadata.create_all` hide
+  this — it only fails against the real migrated schema, surfacing as
+  `invalid input value for enum …` and a "Failed to fetch" in the browser.
 
 ## When asked to add a new feature
 

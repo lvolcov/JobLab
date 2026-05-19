@@ -25,6 +25,7 @@ def _to_read(user: User) -> UserRead:
         is_active=user.is_active,
         is_superuser=user.is_superuser,
         is_verified=user.is_verified,
+        is_premium=user.is_premium,
     )
 
 
@@ -49,6 +50,7 @@ async def create_user(
         email=payload.email,
         hashed_password=hash_password(payload.password),
         is_superuser=payload.is_superuser,
+        is_premium=payload.is_premium,
     )
     session.add(user)
     try:

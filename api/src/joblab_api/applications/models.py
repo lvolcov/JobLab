@@ -6,10 +6,18 @@ from datetime import date, datetime, timezone
 from enum import Enum
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, DateTime, ForeignKey
+from sqlalchemy import Column, DateTime, Enum as SAEnum, ForeignKey
 from sqlmodel import Field, SQLModel
 
-from joblab_api.llm.models import LLMProvider
+from joblab_api.llm.models import LLMProvider, llm_provider_column
+
+
+def _enum_col(py_enum, name: str, *, nullable: bool) -> Column:
+    """Postgres enum column whose values are member .value (lowercase)."""
+    return Column(
+        SAEnum(py_enum, name=name, values_callable=lambda e: [m.value for m in e]),
+        nullable=nullable,
+    )
 
 
 class ApplicationStatus(str, Enum):
@@ -44,7 +52,10 @@ class Application(SQLModel, table=True):
     role_title: str = Field(max_length=300, nullable=False)
     company: str = Field(default="", max_length=300, nullable=False)
     jd_text: str = Field(default="", nullable=False)
-    status: ApplicationStatus = Field(default=ApplicationStatus.APPLIED, nullable=False)
+    status: ApplicationStatus = Field(
+        default=ApplicationStatus.APPLIED,
+        sa_column=_enum_col(ApplicationStatus, "applicationstatus", nullable=False),
+    )
     applied_at: date | None = None
     feedback: str = Field(default="", nullable=False)
     notes: str = Field(default="", nullable=False)
@@ -65,8 +76,8 @@ class ApplicationArtifact(SQLModel, table=True):
             ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, index=True
         )
     )
-    type: ArtifactType = Field(nullable=False)
-    provider: LLMProvider = Field(nullable=False)
+    type: ArtifactType = Field(sa_column=_enum_col(ArtifactType, "artifacttype", nullable=False))
+    provider: LLMProvider = Field(sa_column=llm_provider_column(nullable=False))
     word_limit: int = Field(nullable=False)
     attempts: int = Field(nullable=False)
     final_word_count: int = Field(nullable=False)

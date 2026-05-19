@@ -135,6 +135,7 @@ export default function AdminUsersPage() {
               <tr>
                 <th className="px-5 py-3 font-medium">Email</th>
                 <th className="px-5 py-3 font-medium">Role</th>
+                <th className="px-5 py-3 font-medium">Premium</th>
                 <th className="px-5 py-3 font-medium">Active</th>
                 <th className="px-5 py-3 text-right font-medium">Actions</th>
               </tr>
@@ -156,6 +157,22 @@ export default function AdminUsersPage() {
                     >
                       {u.is_superuser ? "admin" : "user"}
                     </button>
+                  </td>
+                  <td className="px-5 py-3">
+                    <label className="inline-flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                        checked={u.is_premium}
+                        onChange={() =>
+                          update.mutate({
+                            id: u.id,
+                            patch: { is_premium: !u.is_premium },
+                          })
+                        }
+                        aria-label="Premium"
+                      />
+                    </label>
                   </td>
                   <td className="px-5 py-3">
                     <label className="inline-flex items-center gap-2 cursor-pointer">

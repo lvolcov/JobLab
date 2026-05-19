@@ -1,6 +1,7 @@
 // Wiki index — tabs across six entities. Routes navigate to /wiki/:entity.
 
 import { NavLink, Navigate, Outlet, useParams } from "react-router-dom";
+import { CvImportButton } from "../../components/CvImportButton";
 import { PageHeader } from "../../components/ui";
 
 interface Tab {
@@ -24,6 +25,9 @@ export default function WikiLayout() {
         title="Wiki"
         subtitle="Your structured career record. Fed into every AI-generated document."
       />
+      <div className="mb-5">
+        <CvImportButton />
+      </div>
       <nav className="mb-6 flex flex-wrap gap-1 border-b pb-1"
            style={{ borderColor: "rgb(var(--border))" }}>
         {WIKI_TABS.map((t) => (

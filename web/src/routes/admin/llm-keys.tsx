@@ -1,8 +1,16 @@
-// Admin → global LLM keys. Create, assign to users, delete.
+// Admin → global LLM keys. Create, mark premium-only, test, delete.
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, UserPlus } from "lucide-react";
+import {
+  CheckCircle2,
+  Crown,
+  Plug,
+  Plus,
+  ShieldCheck,
+  Trash2,
+  XCircle,
+} from "lucide-react";
 import {
   Button,
   EmptyState,
@@ -12,9 +20,11 @@ import {
   Select,
   Spinner,
 } from "../../components/ui";
-import { api, type AppUser, type LLMKey, type LLMProvider } from "../../lib/api";
+import { api, type LLMKey, type LLMProvider } from "../../lib/api";
 
 const PROVIDERS: LLMProvider[] = ["openai", "anthropic", "gemini"];
+
+type TestResult = { ok: boolean; detail: string };
 
 export default function AdminLLMKeysPage() {
   const qc = useQueryClient();
@@ -22,22 +32,37 @@ export default function AdminLLMKeysPage() {
     queryKey: ["admin-llm-keys"],
     queryFn: () => api.get<LLMKey[]>("/admin/llm-keys"),
   });
-  const users = useQuery({
-    queryKey: ["admin-users"],
-    queryFn: () => api.get<AppUser[]>("/admin/users"),
-  });
 
   const [form, setForm] = useState({
     provider: "openai" as LLMProvider,
     label: "",
     api_key: "",
+    is_premium_only: false,
   });
   const [error, setError] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
+
+  const testKey = useMutation({
+    mutationFn: () =>
+      api.post<TestResult>("/admin/llm-keys/test", {
+        provider: form.provider,
+        api_key: form.api_key,
+      }),
+    onSuccess: (r) => {
+      setTestResult(r);
+      setError(null);
+    },
+    onError: (e: Error) => {
+      setTestResult(null);
+      setError(e.message);
+    },
+  });
 
   const create = useMutation({
     mutationFn: () => api.post<LLMKey>("/admin/llm-keys", form),
     onSuccess: () => {
-      setForm({ provider: "openai", label: "", api_key: "" });
+      setForm({ provider: "openai", label: "", api_key: "", is_premium_only: false });
+      setTestResult(null);
       qc.invalidateQueries({ queryKey: ["admin-llm-keys"] });
     },
     onError: (e: Error) => setError(e.message),
@@ -48,9 +73,10 @@ export default function AdminLLMKeysPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-llm-keys"] }),
   });
 
-  const assign = useMutation({
-    mutationFn: ({ keyId, userId }: { keyId: string; userId: string }) =>
-      api.post(`/admin/llm-keys/${keyId}/assign`, { user_id: userId }),
+  const togglePremium = useMutation({
+    mutationFn: ({ id, value }: { id: string; value: boolean }) =>
+      api.patch<LLMKey>(`/admin/llm-keys/${id}`, { is_premium_only: value }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-llm-keys"] }),
   });
 
   const onSubmit = (e: FormEvent) => {
@@ -59,13 +85,11 @@ export default function AdminLLMKeysPage() {
     create.mutate();
   };
 
-  const userOpts = useMemo(() => users.data ?? [], [users.data]);
-
   return (
     <>
       <PageHeader
         title="Global LLM keys"
-        subtitle="Keys you provide for assigned users. Assignments listed per key."
+        subtitle="Keys available to all users. Mark a key as premium to restrict it to premium users only."
       />
 
       <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -78,7 +102,7 @@ export default function AdminLLMKeysPage() {
           {keys.data && keys.data.length === 0 && (
             <EmptyState
               title="No global keys"
-              description="Add one on the right to share across selected users."
+              description="Add one on the right. By default it's available to every user."
             />
           )}
           {keys.data && keys.data.length > 0 && (
@@ -86,50 +110,46 @@ export default function AdminLLMKeysPage() {
               {keys.data.map((k) => (
                 <li key={k.id} className="surface p-4">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium">{k.label}</p>
-                      <p className="text-sm text-muted">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        {k.is_premium_only ? (
+                          <Crown className="h-4 w-4 text-amber-500" />
+                        ) : (
+                          <ShieldCheck className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+                        )}
+                        <p className="font-medium">{k.label}</p>
+                        {k.is_premium_only && (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                            Premium only
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-sm text-muted">
                         {k.provider} • {k.masked_key}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      className="btn-ghost h-8 !px-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-                      onClick={() => {
-                        if (confirm("Delete this global key?")) remove.mutate(k.id);
-                      }}
-                      aria-label="Delete"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <div className="mt-4 flex flex-wrap items-end gap-2">
-                    <Field label="Assign to user" htmlFor={`assign-${k.id}`}>
-                      <Select id={`assign-${k.id}`} defaultValue="">
-                        <option value="" disabled>
-                          Select user…
-                        </option>
-                        {userOpts.map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.email}
-                          </option>
-                        ))}
-                      </Select>
-                    </Field>
-                    <Button
-                      variant="outline"
-                      className="mb-4"
-                      onClick={(e) => {
-                        const select = (e.currentTarget.previousElementSibling
-                          ?.querySelector("select") as HTMLSelectElement | null);
-                        if (select?.value) {
-                          assign.mutate({ keyId: k.id, userId: select.value });
-                          select.value = "";
-                        }
-                      }}
-                    >
-                      <UserPlus className="h-4 w-4" /> Assign
-                    </Button>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <label className="flex cursor-pointer items-center gap-1 text-xs text-muted">
+                        <input
+                          type="checkbox"
+                          checked={k.is_premium_only}
+                          onChange={(e) =>
+                            togglePremium.mutate({ id: k.id, value: e.target.checked })
+                          }
+                        />
+                        Premium
+                      </label>
+                      <button
+                        type="button"
+                        className="btn-ghost h-8 !px-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                        onClick={() => {
+                          if (confirm("Delete this global key?")) remove.mutate(k.id);
+                        }}
+                        aria-label="Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 </li>
               ))}
@@ -144,9 +164,10 @@ export default function AdminLLMKeysPage() {
               <Select
                 id="provider"
                 value={form.provider}
-                onChange={(e) =>
-                  setForm({ ...form, provider: e.target.value as LLMProvider })
-                }
+                onChange={(e) => {
+                  setForm({ ...form, provider: e.target.value as LLMProvider });
+                  setTestResult(null);
+                }}
               >
                 {PROVIDERS.map((p) => (
                   <option key={p} value={p}>
@@ -174,12 +195,62 @@ export default function AdminLLMKeysPage() {
                 required
                 type="password"
                 value={form.api_key}
-                onChange={(e) => setForm({ ...form, api_key: e.target.value })}
+                onChange={(e) => {
+                  setForm({ ...form, api_key: e.target.value });
+                  setTestResult(null);
+                }}
               />
             </Field>
-            <Button type="submit" className="w-full" loading={create.isPending}>
-              <Plus className="h-4 w-4" /> Add key
-            </Button>
+            <label className="mb-3 flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={form.is_premium_only}
+                onChange={(e) =>
+                  setForm({ ...form, is_premium_only: e.target.checked })
+                }
+              />
+              <Crown className="h-4 w-4 text-amber-500" />
+              Premium users only
+            </label>
+            {testResult && (
+              <div
+                className={
+                  "mb-3 flex items-start gap-2 rounded-lg p-2 text-sm " +
+                  (testResult.ok
+                    ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300"
+                    : "bg-red-50 text-red-800 dark:bg-red-950/30 dark:text-red-300")
+                }
+              >
+                {testResult.ok ? (
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                ) : (
+                  <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                )}
+                <span className="break-words">
+                  {testResult.ok ? "Key works." : testResult.detail || "Test failed."}
+                </span>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={!form.api_key || create.isPending}
+                loading={testKey.isPending}
+                onClick={() => testKey.mutate()}
+              >
+                <Plug className="h-4 w-4" /> Test
+              </Button>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={!form.label || !form.api_key}
+                loading={create.isPending}
+              >
+                <Plus className="h-4 w-4" /> Add key
+              </Button>
+            </div>
           </form>
         </aside>
       </section>

@@ -16,6 +16,7 @@ class LLMKeyRead(BaseModel):
     provider: LLMProvider
     label: str
     is_global: bool
+    is_premium_only: bool = False
     owner_user_id: UUID | None
     masked_key: str = Field(
         default="****",
@@ -27,6 +28,7 @@ class GlobalKeyCreate(BaseModel):
     provider: LLMProvider
     label: str = Field(min_length=1, max_length=128)
     api_key: str = Field(min_length=1)
+    is_premium_only: bool = False
 
 
 class UserKeyCreate(BaseModel):
@@ -35,5 +37,12 @@ class UserKeyCreate(BaseModel):
     api_key: str = Field(min_length=1)
 
 
-class AssignmentCreate(BaseModel):
-    user_id: UUID
+class TestKeyRequest(BaseModel):
+    provider: LLMProvider
+    api_key: str = Field(min_length=1)
+
+
+class TestKeyResponse(BaseModel):
+    ok: bool
+    provider: LLMProvider
+    detail: str = ""

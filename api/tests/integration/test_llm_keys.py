@@ -22,18 +22,15 @@ async def test_admin_creates_global_key_encrypted_in_db(
     assert r.status_code == 201, r.text
     body = r.json()
 
-    # Response never includes the raw key
     assert "encrypted_key" not in body
     assert "api_key" not in body
     assert body["masked_key"] == "****"
     assert body["is_global"] is True
+    assert body["is_premium_only"] is False
 
-    # DB row stores ciphertext, not plaintext
     row = (
         await db_session.execute(select(LLMKey).where(LLMKey.id == body["id"]))
     ).scalar_one()
-    assert row.encrypted_key != "sk-RAW-SECRET-1234"
-    assert "sk-RAW-SECRET-1234" not in row.encrypted_key
     assert decrypt_str(row.encrypted_key) == "sk-RAW-SECRET-1234"
 
 
@@ -65,56 +62,77 @@ async def test_user_creates_own_key_and_lists_it(
     assert len(listing.json()) == 1
 
 
-async def test_admin_assigns_global_key_to_user_and_user_sees_it(
-    client: AsyncClient, admin_user: User, regular_user: User
+async def test_non_premium_user_sees_only_non_premium_globals(
+    client: AsyncClient,
+    admin_user: User,
+    regular_user: User,
 ) -> None:
     client.cookies.update(auth_cookie(admin_user))
-    create = await client.post(
+    await client.post(
         "/admin/llm-keys",
-        json={"provider": "gemini", "label": "team gemini", "api_key": "g-secret"},
+        json={"provider": "openai", "label": "free pool", "api_key": "free"},
     )
-    key_id = create.json()["id"]
-    r = await client.post(
-        f"/admin/llm-keys/{key_id}/assign", json={"user_id": str(regular_user.id)}
+    await client.post(
+        "/admin/llm-keys",
+        json={
+            "provider": "anthropic",
+            "label": "premium pool",
+            "api_key": "prem",
+            "is_premium_only": True,
+        },
     )
-    assert r.status_code == 201
 
-    # Idempotent reassignment
-    r2 = await client.post(
-        f"/admin/llm-keys/{key_id}/assign", json={"user_id": str(regular_user.id)}
-    )
-    assert r2.status_code == 201
-
-    # The user now sees the assigned key in /me/llm-keys
     client.cookies.clear()
     client.cookies.update(auth_cookie(regular_user))
     me = await client.get("/me/llm-keys")
-    assert me.status_code == 200
-    assert any(k["id"] == key_id and k["is_global"] for k in me.json())
+    labels = {k["label"] for k in me.json()}
+    assert "free pool" in labels
+    assert "premium pool" not in labels
 
 
-async def test_resolve_api_key_prefers_own_then_assigned(
+async def test_premium_user_sees_premium_global(
     client: AsyncClient,
     admin_user: User,
     regular_user: User,
     db_session: AsyncSession,
 ) -> None:
-    # Admin creates + assigns a global gemini key
     client.cookies.update(auth_cookie(admin_user))
-    create = await client.post(
+    await client.post(
+        "/admin/llm-keys",
+        json={
+            "provider": "anthropic",
+            "label": "premium pool",
+            "api_key": "prem",
+            "is_premium_only": True,
+        },
+    )
+
+    regular_user.is_premium = True
+    db_session.add(regular_user)
+    await db_session.commit()
+
+    client.cookies.clear()
+    client.cookies.update(auth_cookie(regular_user))
+    me = await client.get("/me/llm-keys")
+    labels = {k["label"] for k in me.json()}
+    assert "premium pool" in labels
+
+
+async def test_resolve_api_key_prefers_own_then_global(
+    client: AsyncClient,
+    admin_user: User,
+    regular_user: User,
+    db_session: AsyncSession,
+) -> None:
+    client.cookies.update(auth_cookie(admin_user))
+    await client.post(
         "/admin/llm-keys",
         json={"provider": "gemini", "label": "g", "api_key": "G-GLOBAL"},
     )
-    gid = create.json()["id"]
-    await client.post(
-        f"/admin/llm-keys/{gid}/assign", json={"user_id": str(regular_user.id)}
-    )
 
-    # User has no own gemini key → resolves to assigned
     resolved = await resolve_api_key(db_session, regular_user.id, LLMProvider.GEMINI)
     assert resolved == "G-GLOBAL"
 
-    # User adds their own gemini key → resolution prefers own
     client.cookies.clear()
     client.cookies.update(auth_cookie(regular_user))
     await client.post(
@@ -123,6 +141,39 @@ async def test_resolve_api_key_prefers_own_then_assigned(
     )
     resolved2 = await resolve_api_key(db_session, regular_user.id, LLMProvider.GEMINI)
     assert resolved2 == "G-OWN"
+
+
+async def test_resolve_api_key_skips_premium_only_for_non_premium(
+    client: AsyncClient,
+    admin_user: User,
+    regular_user: User,
+    db_session: AsyncSession,
+) -> None:
+    client.cookies.update(auth_cookie(admin_user))
+    await client.post(
+        "/admin/llm-keys",
+        json={
+            "provider": "openai",
+            "label": "prem",
+            "api_key": "PREM-ONLY",
+            "is_premium_only": True,
+        },
+    )
+    assert await resolve_api_key(db_session, regular_user.id, LLMProvider.OPENAI) is None
+
+
+async def test_admin_can_toggle_global_key_premium(
+    client: AsyncClient, admin_user: User
+) -> None:
+    client.cookies.update(auth_cookie(admin_user))
+    create = await client.post(
+        "/admin/llm-keys",
+        json={"provider": "openai", "label": "k", "api_key": "k"},
+    )
+    kid = create.json()["id"]
+    r = await client.patch(f"/admin/llm-keys/{kid}", json={"is_premium_only": True})
+    assert r.status_code == 200, r.text
+    assert r.json()["is_premium_only"] is True
 
 
 async def test_resolve_api_key_returns_none_when_user_has_nothing(

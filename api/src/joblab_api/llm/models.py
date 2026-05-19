@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, DateTime, Enum as SAEnum, ForeignKey
 from sqlmodel import Field, SQLModel
 
 
@@ -21,6 +21,24 @@ class LLMProvider(str, Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     GEMINI = "gemini"
+
+
+def llm_provider_column(*, nullable: bool, index: bool = False) -> Column:
+    """SQLA column for LLMProvider that serialises member *values* (lowercase).
+
+    The Postgres enum type ``llmprovider`` was created by Alembic with
+    lowercase values; SQLAlchemy's default serialises member NAMES. Without
+    ``values_callable`` every INSERT raises "invalid input value for enum".
+    """
+    return Column(
+        SAEnum(
+            LLMProvider,
+            name="llmprovider",
+            values_callable=lambda enum: [m.value for m in enum],
+        ),
+        nullable=nullable,
+        index=index,
+    )
 
 
 class LLMKey(SQLModel, table=True):
@@ -37,33 +55,11 @@ class LLMKey(SQLModel, table=True):
         default=None,
         sa_column=Column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True),
     )
-    provider: LLMProvider = Field(nullable=False, index=True)
+    provider: LLMProvider = Field(sa_column=llm_provider_column(nullable=False, index=True))
     encrypted_key: str = Field(nullable=False, max_length=4096)
     label: str = Field(nullable=False, max_length=128)
     is_global: bool = Field(default=False, nullable=False, index=True)
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        sa_column=Column(DateTime(timezone=True), nullable=False),
-    )
-
-
-class LLMKeyAssignment(SQLModel, table=True):
-    """Links a global LLMKey to a User permitted to use it."""
-
-    __tablename__ = "llm_key_assignments"
-    __table_args__ = (UniqueConstraint("llm_key_id", "user_id", name="uq_llm_key_user"),)
-
-    id: UUID = Field(default_factory=uuid4, primary_key=True, nullable=False)
-    llm_key_id: UUID = Field(
-        sa_column=Column(
-            ForeignKey("llm_keys.id", ondelete="CASCADE"), nullable=False, index=True
-        ),
-    )
-    user_id: UUID = Field(
-        sa_column=Column(
-            ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
-        ),
-    )
+    is_premium_only: bool = Field(default=False, nullable=False)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), nullable=False),

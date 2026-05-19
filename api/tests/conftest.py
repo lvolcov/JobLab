@@ -19,7 +19,7 @@ from sqlmodel import SQLModel
 
 os.environ.setdefault("JWT_SECRET", "test-secret-do-not-use-in-prod")
 os.environ.setdefault("FERNET_KEY", "ZmFrZS1mZXJuZXQta2V5LTMyLWJ5dGVzLWxvbmcuLi4uLi4=")
-os.environ.setdefault("JOBLAB_TEST_MODE", "1")
+os.environ["JOBLAB_TEST_MODE"] = "1"
 
 from joblab_api import models  # noqa: E402, F401 — register tables on metadata
 from joblab_api.auth.security import (  # noqa: E402

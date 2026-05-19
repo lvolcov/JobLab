@@ -38,8 +38,8 @@ The client at `web/src/lib/api.ts` does both automatically.
 | GET    | `/admin/llm-keys`                                   | —                                 |
 | POST   | `/admin/llm-keys`                                   | `{provider, label, api_key}`      |
 | DELETE | `/admin/llm-keys/{key_id}`                          | —                                 |
-| POST   | `/admin/llm-keys/{key_id}/assign`                   | `{user_id}` — idempotent          |
-| DELETE | `/admin/llm-keys/{key_id}/assignments/{user_id}`    | —                                 |
+| PATCH  | `/admin/llm-keys/{key_id}`                          | `{is_premium_only?, label?}`      |
+| POST   | `/admin/llm-keys/test`                              | `{provider, api_key}` — 1-token probe. |
 
 Responses never include the raw or encrypted key — only `masked_key: "****"`.
 
@@ -47,8 +47,9 @@ Responses never include the raw or encrypted key — only `masked_key: "****"`.
 
 | Method | Path                       | Body                          |
 | ------ | -------------------------- | ----------------------------- |
-| GET    | `/me/llm-keys`             | Lists own keys + assigned globals. |
+| GET    | `/me/llm-keys`             | Lists own keys + visible globals (filtered by `is_premium_only` vs `users.is_premium`). |
 | POST   | `/me/llm-keys`             | `{provider, label, api_key}`  |
+| POST   | `/me/llm-keys/test`        | `{provider, api_key}` — 1-token probe; returns `{ok, error?}`. |
 | DELETE | `/me/llm-keys/{key_id}`    | Owner only.                   |
 | GET    | `/me/llm-keys/providers`   | Lists supported provider enum values. |
 
@@ -65,6 +66,27 @@ Each entity is a parallel REST resource at `/wiki/{cvs|experiences|projects|skil
 | GET    | `/wiki/{entity}/{id}`           | 404 across users.                   |
 | PATCH  | `/wiki/{entity}/{id}`           | Partial update.                     |
 | DELETE | `/wiki/{entity}/{id}`           | —                                   |
+| POST   | `/wiki/import`                  | `multipart/form-data`; `file` of PDF. Extracts CV via the user's default AI provider and populates all six entity tables. Returns `ImportResult` with per-entity `{inserted, skipped_exact, flagged_duplicate}` counts. Exact-signature matches are skipped; high-similarity matches are inserted with `possible_duplicate_of_id` set. Requires `default_provider` set in Settings and a working key for that provider. |
+
+Every wiki row also carries `possible_duplicate_of_id`: nullable self-FK populated by the importer when an inserted item closely resembles an existing one. The UI renders an amber "possible duplicate" badge whenever it is non-null.
+
+### Settings
+
+| Method | Path                  | Body / notes                                                |
+| ------ | --------------------- | ----------------------------------------------------------- |
+| PATCH  | `/auth/me/settings`   | `{default_provider: "openai"|"anthropic"|"gemini"|null}`. Rejected (400) unless the user has a working key for that provider. |
+
+`GET /auth/me` returns `default_provider` and `is_premium` alongside the existing fields.
+
+### Premium tiering
+
+Global LLM keys can be marked `is_premium_only=True` (admin-only field on `POST /admin/llm-keys` and `PATCH /admin/llm-keys/{id}`). Users with `is_premium=True` see all global keys; non-premium users only see globals where `is_premium_only=False`. Per-user assignment (`/admin/llm-keys/{id}/assign`) was removed in favour of this flag.
+
+| Method | Path                              | Body                                              |
+| ------ | --------------------------------- | ------------------------------------------------- |
+| PATCH  | `/admin/llm-keys/{id}`            | `{is_premium_only?: bool, label?: string}`        |
+| PATCH  | `/admin/users/{id}`               | now also accepts `is_premium: bool`               |
+| POST   | `/admin/llm-keys/test`            | Same shape as `/me/llm-keys/test`; admin-only.    |
 
 ## Documents
 

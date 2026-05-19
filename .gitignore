@@ -16,6 +16,7 @@ build/
 
 # Node
 node_modules/
+.pnpm-store/
 .vite/
 dist/
 .next/

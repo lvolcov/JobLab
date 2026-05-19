@@ -22,12 +22,19 @@ def _user_fk() -> Column:
     return Column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
 
+def _dup_fk(table: str) -> Column:
+    return Column(ForeignKey(f"{table}.id", ondelete="SET NULL"), nullable=True)
+
+
 class WikiCV(SQLModel, table=True):
     __tablename__ = "wiki_cvs"
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     user_id: UUID = Field(sa_column=_user_fk())
     title: str = Field(max_length=200, nullable=False)
     body_md: str = Field(default="", nullable=False)
+    possible_duplicate_of_id: UUID | None = Field(
+        default=None, sa_column=_dup_fk("wiki_cvs")
+    )
     created_at: datetime = Field(
         default_factory=_utcnow, sa_column=Column(DateTime(timezone=True), nullable=False)
     )
@@ -45,6 +52,9 @@ class WikiEducation(SQLModel, table=True):
     start: date | None = None
     end: date | None = None
     details: str = Field(default="", nullable=False)
+    possible_duplicate_of_id: UUID | None = Field(
+        default=None, sa_column=_dup_fk("wiki_education")
+    )
     created_at: datetime = Field(
         default_factory=_utcnow, sa_column=Column(DateTime(timezone=True), nullable=False)
     )
@@ -61,6 +71,9 @@ class WikiQualification(SQLModel, table=True):
     issuer: str = Field(default="", max_length=200, nullable=False)
     date_awarded: date | None = None
     details: str = Field(default="", nullable=False)
+    possible_duplicate_of_id: UUID | None = Field(
+        default=None, sa_column=_dup_fk("wiki_qualifications")
+    )
     created_at: datetime = Field(
         default_factory=_utcnow, sa_column=Column(DateTime(timezone=True), nullable=False)
     )
@@ -76,6 +89,9 @@ class WikiSkill(SQLModel, table=True):
     name: str = Field(max_length=120, nullable=False)
     level: str = Field(default="", max_length=40, nullable=False)
     notes: str = Field(default="", nullable=False)
+    possible_duplicate_of_id: UUID | None = Field(
+        default=None, sa_column=_dup_fk("wiki_skills")
+    )
     created_at: datetime = Field(
         default_factory=_utcnow, sa_column=Column(DateTime(timezone=True), nullable=False)
     )
@@ -94,6 +110,9 @@ class WikiProject(SQLModel, table=True):
     end: date | None = None
     summary: str = Field(default="", nullable=False)
     achievements: str = Field(default="", nullable=False)
+    possible_duplicate_of_id: UUID | None = Field(
+        default=None, sa_column=_dup_fk("wiki_projects")
+    )
     created_at: datetime = Field(
         default_factory=_utcnow, sa_column=Column(DateTime(timezone=True), nullable=False)
     )
@@ -112,6 +131,9 @@ class WikiExperience(SQLModel, table=True):
     end: date | None = None
     summary: str = Field(default="", nullable=False)
     achievements: str = Field(default="", nullable=False)
+    possible_duplicate_of_id: UUID | None = Field(
+        default=None, sa_column=_dup_fk("wiki_experiences")
+    )
     created_at: datetime = Field(
         default_factory=_utcnow, sa_column=Column(DateTime(timezone=True), nullable=False)
     )

@@ -65,6 +65,12 @@ Two-column on `lg+`: list on the left, **right-rail form** for create/edit.
 Tabs at the top to switch entity. Inline edit (click pencil → form populates).
 Delete is a single button + native confirm.
 
+Above the tabs: an **Import CV (PDF)** button. Disabled (with a link to
+Settings) while no default provider is set. On success, shows a per-entity
+breakdown: new / flagged-duplicate / skipped. Rows in the list whose
+`possible_duplicate_of_id` is non-null carry an amber "Possible duplicate"
+badge inline with the title.
+
 ### `/applications`
 
 List of all applications with status chip. Inline "New application" form
@@ -90,19 +96,33 @@ A side card on `lg+` holds **Feedback & notes**.
 
 ### `/settings`
 
-User's own LLM keys + assigned global keys (badged with a shield icon).
-Right-rail form to add a personal key. Personal keys are deletable; assigned
-globals are not (only the admin can revoke).
+Two stacked sections:
+
+1. **Default AI provider** — dropdown listing only providers the user has a
+   working key for (own + visible globals). Auto-selects the first available
+   provider when none is set. Used by CV import + generation.
+2. **My keys** — own keys + visible globals (own = trash icon; global = shield
+   icon; premium-only globals additionally show a crown). Right-rail form has
+   `Provider`, `Label`, `API key`, then `Test` (probes the key with a 1-token
+   call) and `Add key` side-by-side. Result of `Test` shown inline (green tick
+   on ok, red panel with the provider's message on failure).
 
 ### `/admin/users`
 
-Table: email, role chip (toggleable), active checkbox, reset-password,
-delete. Inline "New user" form above the table.
+Table: email, role chip (toggleable), **premium** checkbox, active checkbox,
+reset-password, delete. Inline "New user" form above the table.
 
 ### `/admin/llm-keys`
 
-List of global keys; each row has a per-row "Assign to user" select. New-key
-form on the right rail.
+List of global keys with `Premium` checkbox per row and a crown icon when set.
+Right-rail "New global key" form mirrors `/settings`: `Provider`, `Label`,
+`API key`, `Premium users only` toggle, then `Test` + `Add key` side-by-side.
+
+### Site-wide "no provider" banner
+
+Amber strip mounted in the protected layout, above the main content. Renders
+on every authenticated route except `/settings` while
+`me.default_provider === null`, linking back to Settings.
 
 ## Accessibility
 

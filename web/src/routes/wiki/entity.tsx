@@ -4,7 +4,7 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Trash2, X } from "lucide-react";
+import { AlertTriangle, Pencil, Plus, Trash2, X } from "lucide-react";
 import {
   Button,
   EmptyState,
@@ -215,9 +215,20 @@ function WikiEntityInner({ entity, cfg }: { entity: string; cfg: EntityConfig })
               <li key={row.id} className="surface p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate font-medium">
-                      {String(row[cfg.primary] ?? "—")}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="truncate font-medium">
+                        {String(row[cfg.primary] ?? "—")}
+                      </p>
+                      {row.possible_duplicate_of_id && (
+                        <span
+                          title="An AI import flagged this as a likely duplicate of an existing entry."
+                          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                        >
+                          <AlertTriangle className="h-3 w-3" />
+                          Possible duplicate
+                        </span>
+                      )}
+                    </div>
                     {cfg.secondary && (
                       <p className="truncate text-sm text-muted">
                         {String(row[cfg.secondary] ?? "")}

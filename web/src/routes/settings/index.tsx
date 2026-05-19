@@ -1,8 +1,8 @@
 // Settings — manage one's own LLM keys. Assigned global keys also shown.
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import { CheckCircle2, KeyRound, Plug, Plus, ShieldCheck, Sparkles, Trash2, XCircle } from "lucide-react";
 import {
   Button,
   EmptyState,
@@ -12,16 +12,46 @@ import {
   Select,
   Spinner,
 } from "../../components/ui";
-import { api, type LLMKey, type LLMProvider } from "../../lib/api";
+import { api, type LLMKey, type LLMProvider, type Me } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
 
 const PROVIDERS: LLMProvider[] = ["openai", "anthropic", "gemini"];
 
 export default function SettingsPage() {
   const qc = useQueryClient();
+  const { me, refresh: refreshMe } = useAuth();
   const keys = useQuery({
     queryKey: ["me-keys"],
     queryFn: () => api.get<LLMKey[]>("/me/llm-keys"),
   });
+
+  const workingProviders: LLMProvider[] = Array.from(
+    new Set((keys.data ?? []).map((k) => k.provider)),
+  );
+
+  const [defaultError, setDefaultError] = useState<string | null>(null);
+  const setDefault = useMutation({
+    mutationFn: (provider: LLMProvider | null) =>
+      api.patch<Me>("/auth/me/settings", { default_provider: provider }),
+    onSuccess: () => {
+      setDefaultError(null);
+      refreshMe();
+    },
+    onError: (e: Error) => setDefaultError(e.message),
+  });
+
+  // Auto-pick the first available provider when none is set yet.
+  useEffect(() => {
+    if (
+      me &&
+      me.default_provider === null &&
+      workingProviders.length > 0 &&
+      !setDefault.isPending
+    ) {
+      setDefault.mutate(workingProviders[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me?.default_provider, workingProviders.join(",")]);
 
   const [form, setForm] = useState({
     provider: "openai" as LLMProvider,
@@ -30,10 +60,29 @@ export default function SettingsPage() {
   });
   const [error, setError] = useState<string | null>(null);
 
+  type TestResult = { ok: boolean; detail: string };
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const testKey = useMutation({
+    mutationFn: () =>
+      api.post<TestResult>("/me/llm-keys/test", {
+        provider: form.provider,
+        api_key: form.api_key,
+      }),
+    onSuccess: (r) => {
+      setTestResult(r);
+      setError(null);
+    },
+    onError: (e: Error) => {
+      setTestResult(null);
+      setError(e.message);
+    },
+  });
+
   const create = useMutation({
     mutationFn: () => api.post<LLMKey>("/me/llm-keys", form),
     onSuccess: () => {
       setForm({ provider: "openai", label: "", api_key: "" });
+      setTestResult(null);
       qc.invalidateQueries({ queryKey: ["me-keys"] });
     },
     onError: (e: Error) => setError(e.message),
@@ -53,9 +102,51 @@ export default function SettingsPage() {
   return (
     <>
       <PageHeader
-        title="My keys"
-        subtitle="Add your own API keys, or use a key your admin assigned to you. Keys are encrypted at rest."
+        title="Settings"
+        subtitle="Pick the AI used for CV imports and manage your API keys."
       />
+
+      <section className="surface mb-6 p-5">
+        <div className="mb-3 flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+          <h2 className="text-sm font-semibold">Default AI provider</h2>
+        </div>
+        <p className="mb-3 text-sm text-muted">
+          Used when you import a CV PDF on the wiki page. Only providers with a
+          working key (yours or assigned) are selectable.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <Select
+            aria-label="Default provider"
+            value={me?.default_provider ?? ""}
+            disabled={workingProviders.length === 0 || setDefault.isPending}
+            onChange={(e) => {
+              const v = e.target.value;
+              setDefault.mutate(v === "" ? null : (v as LLMProvider));
+            }}
+          >
+            <option value="">— none —</option>
+            {workingProviders.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </Select>
+          {workingProviders.length === 0 && (
+            <span className="text-sm text-muted">
+              Add a key below first.
+            </span>
+          )}
+          {setDefault.isPending && <Spinner className="h-4 w-4 text-brand-600" />}
+        </div>
+        {defaultError && (
+          <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+            {defaultError}
+          </p>
+        )}
+      </section>
+
+      <h2 className="mb-3 text-base font-semibold">My keys</h2>
 
       <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div>
@@ -117,9 +208,10 @@ export default function SettingsPage() {
               <Select
                 id="provider"
                 value={form.provider}
-                onChange={(e) =>
-                  setForm({ ...form, provider: e.target.value as LLMProvider })
-                }
+                onChange={(e) => {
+                  setForm({ ...form, provider: e.target.value as LLMProvider });
+                  setTestResult(null);
+                }}
               >
                 {PROVIDERS.map((p) => (
                   <option key={p} value={p}>
@@ -147,12 +239,51 @@ export default function SettingsPage() {
                 required
                 type="password"
                 value={form.api_key}
-                onChange={(e) => setForm({ ...form, api_key: e.target.value })}
+                onChange={(e) => {
+                  setForm({ ...form, api_key: e.target.value });
+                  setTestResult(null);
+                }}
               />
             </Field>
-            <Button type="submit" className="w-full" loading={create.isPending}>
-              <Plus className="h-4 w-4" /> Add key
-            </Button>
+            {testResult && (
+              <div
+                className={
+                  "mb-3 flex items-start gap-2 rounded-lg p-2 text-sm " +
+                  (testResult.ok
+                    ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300"
+                    : "bg-red-50 text-red-800 dark:bg-red-950/30 dark:text-red-300")
+                }
+              >
+                {testResult.ok ? (
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                ) : (
+                  <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                )}
+                <span className="break-words">
+                  {testResult.ok ? "Key works." : testResult.detail || "Test failed."}
+                </span>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={!form.api_key || create.isPending}
+                loading={testKey.isPending}
+                onClick={() => testKey.mutate()}
+              >
+                <Plug className="h-4 w-4" /> Test
+              </Button>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={!form.label || !form.api_key}
+                loading={create.isPending}
+              >
+                <Plus className="h-4 w-4" /> Add key
+              </Button>
+            </div>
           </form>
         </aside>
       </section>

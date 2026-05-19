@@ -49,11 +49,22 @@ joblab_api/
 ├── auth/                   # cookie/JWT sessions, password hashing
 ├── users/                  # admin /admin/users CRUD
 ├── llm/                    # provider abstraction + adapters + key vault
-├── wiki/                   # six entities behind one generic CRUD factory
+├── wiki/                   # six entities behind one generic CRUD factory;
+│                           # also CV-import pipeline (PDF → LLM JSON → dedup → rows)
 ├── documents/              # uploads + text extraction (pdf, docx, txt, md)
 ├── applications/           # per-role records + artifact persistence
 └── generation/             # prompt assembly + retry loop
 ```
+
+### CV-import pipeline (`wiki/import_*`)
+
+1. `POST /wiki/import` accepts a PDF, extracts text via the existing parser.
+2. Resolves the user's `default_provider` and a working key for it.
+3. `import_service.parse_with_llm` builds a structured-JSON prompt (`JSON_SCHEMA_HINT`) and calls the adapter. One retry on `json.JSONDecodeError` / Pydantic `ValidationError`, with a corrective hint appended.
+4. `apply_extracted` walks each of the six entity lists and runs `dedup.classify`: exact normalised-signature match → skip; rapidfuzz `token_set_ratio ≥ 85` → insert with `possible_duplicate_of_id` set; otherwise → insert clean.
+5. Returns an `ImportResult` with per-entity `{inserted, skipped_exact, flagged_duplicate}` counts.
+
+`JOBLAB_TEST_MODE=1` swaps the adapter for `JsonStubAdapter` (deterministic fixture) so the suite never hits a real provider.
 
 ### Why SQLModel + Alembic
 
@@ -113,23 +124,29 @@ Routing is a flat tree under two protected layouts (one user, one admin):
 /wiki/:entity                       cvs | experiences | projects | skills | qualifications | education
 /applications                       list
 /applications/:id                   detail + generator + artifacts
-/settings                           personal LLM keys + assigned global keys
-/admin/users                        admin-only — CRUD + reset password + admin toggle
-/admin/llm-keys                     admin-only — global keys + assignment
+/settings                           default AI provider + personal LLM keys + visible globals
+/admin/users                        admin-only — CRUD + reset password + admin/premium toggles
+/admin/llm-keys                     admin-only — global keys with premium-only flag
 ```
 
-## Database schema (current head: `0004_applications`)
+A site-wide amber banner appears on every protected route (except `/settings`) while the current user has no `default_provider` set — AI features (CV import, generation) are unavailable until that's fixed.
+
+## Database schema (current head: `0006_premium_flag`)
 
 ```
-users(id PK, email UNIQUE, hashed_password, is_active, is_superuser, is_verified, created_at)
+users(id PK, email UNIQUE, hashed_password, is_active, is_superuser, is_verified,
+      is_premium, default_provider, created_at)
 
-llm_keys(id PK, owner_user_id FK users.id NULL, provider, encrypted_key, label, is_global, created_at)
-llm_key_assignments(id PK, llm_key_id FK llm_keys.id, user_id FK users.id, created_at,
-                    UNIQUE(llm_key_id, user_id))
+llm_keys(id PK, owner_user_id FK users.id NULL, provider, encrypted_key, label,
+         is_global, is_premium_only, created_at)
+
+# llm_key_assignments was removed in 0006 — per-user assignment was replaced by
+# the (users.is_premium × llm_keys.is_premium_only) tier model.
 
 wiki_cvs / wiki_experiences / wiki_projects / wiki_skills /
 wiki_qualifications / wiki_education
-    (id PK, user_id FK users.id, created_at, updated_at, … entity fields)
+    (id PK, user_id FK users.id, created_at, updated_at, … entity fields,
+     possible_duplicate_of_id FK self NULL)
 
 documents(id PK, user_id FK users.id, filename, mime, size_bytes, parsed_text, created_at)
 

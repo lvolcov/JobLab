@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Request, Response, status
 from sqlmodel import select
 
 from joblab_api.auth.deps import CurrentUser
-from joblab_api.auth.schemas import LoginRequest, MeResponse
+from joblab_api.auth.schemas import LoginRequest, MeResponse, SettingsUpdate
 from joblab_api.auth.security import (
     SESSION_COOKIE_NAME,
     SESSION_TTL,
@@ -12,6 +12,7 @@ from joblab_api.auth.security import (
     verify_password,
 )
 from joblab_api.db import SessionDep
+from joblab_api.llm.service import resolve_api_key
 from joblab_api.rate_limit import LOGIN_LIMIT, limiter
 from joblab_api.users.models import User
 
@@ -48,7 +49,12 @@ async def login(
         path="/",
     )
     return MeResponse(
-        id=user.id, email=user.email, is_active=user.is_active, is_superuser=user.is_superuser
+        id=user.id,
+        email=user.email,
+        is_active=user.is_active,
+        is_superuser=user.is_superuser,
+        is_premium=user.is_premium,
+        default_provider=user.default_provider,
     )
 
 
@@ -62,5 +68,37 @@ async def logout(response: Response) -> Response:
 @router.get("/me", response_model=MeResponse)
 async def me(user: CurrentUser) -> MeResponse:
     return MeResponse(
-        id=user.id, email=user.email, is_active=user.is_active, is_superuser=user.is_superuser
+        id=user.id,
+        email=user.email,
+        is_active=user.is_active,
+        is_superuser=user.is_superuser,
+        is_premium=user.is_premium,
+        default_provider=user.default_provider,
+    )
+
+
+@router.patch("/me/settings", response_model=MeResponse)
+async def update_settings(
+    payload: SettingsUpdate,
+    user: CurrentUser,
+    session: SessionDep,
+) -> MeResponse:
+    if payload.default_provider is not None:
+        key = await resolve_api_key(session, user.id, payload.default_provider)
+        if key is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="no working key for that provider",
+            )
+    user.default_provider = payload.default_provider
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return MeResponse(
+        id=user.id,
+        email=user.email,
+        is_active=user.is_active,
+        is_superuser=user.is_superuser,
+        is_premium=user.is_premium,
+        default_provider=user.default_provider,
     )
