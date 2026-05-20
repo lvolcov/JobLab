@@ -16,6 +16,8 @@ on the wiki page: the file is parsed, sent to their default AI provider with a
 structured-JSON prompt, validated against `ExtractedCV` Pydantic models, and
 each entity is inserted with **exact-skip + fuzzy-dedup**
 (rapidfuzz `token_set_ratio ≥ 85` flags rows via `possible_duplicate_of_id`).
+Wiki lists for experiences and projects show dates, summary (truncated/expandable),
+and achievements inline; all date-bearing entities are sorted newest-first.
 
 They then create an **application** record for a role they want to apply for,
 paste the JD, and the app generates **one of four document types** with their
@@ -24,11 +26,14 @@ choice of LLM provider:
 - `cv` — tailored CV in markdown
 - `cover_letter` — concise letter
 - `blind_cv` — UK Civil Service style: name, age, gender, institutions stripped
-- `behaviour` — UK Civil Service STAR response (defaults to 250 words)
+- `behaviour` — UK Civil Service STAR response. Requires `behaviour_name` (chosen
+  from the 9 standard CS behaviours) and optionally `grade` (EO/HEO/SEO/Grade 7/
+  Grade 6). When grade is supplied, grade-specific descriptors from
+  `api/src/joblab_api/data/cs_behaviours.py` are injected into the prompt.
 
 The generation pipeline counts words, retries up to **3 times** if over the
 limit, and persists the result as an `application_artifact` with `attempts`,
-`final_word_count`, and a `warning_flag` if the cap couldn't be met.
+`final_word_count`, `warning_flag`, `behaviour_name`, and `grade`.
 
 LLM keys are Fernet-encrypted at rest. Admins can supply **global keys**,
 optionally flagged `is_premium_only`. Users with `is_premium=True` see all
@@ -92,7 +97,10 @@ joblab/
 │   │       ├── 0001_init.py                  # users + llm_keys
 │   │       ├── 0002_wiki_documents.py        # 6 wiki tables + documents
 │   │       ├── 0003_llm_assignments.py       # global-key → user mapping
-│   │       └── 0004_applications.py          # applications + artifacts
+│   │       ├── 0004_applications.py          # applications + artifacts
+│   │       ├── 0005_default_provider_dup.py  # users.default_provider, wiki.possible_duplicate_of_id
+│   │       ├── 0006_premium_flag.py          # users.is_premium, llm_keys.is_premium_only
+│   │       └── 0007_artifact_grade.py        # application_artifacts.grade
 │   ├── src/joblab_api/
 │   │   ├── main.py                # FastAPI app + middleware composition
 │   │   ├── config.py              # Pydantic Settings
@@ -108,7 +116,9 @@ joblab/
 │   │   ├── wiki/                  # 6 entities behind a generic CRUD factory
 │   │   ├── documents/             # uploads + pdf/docx/txt/md parsing
 │   │   ├── applications/          # application records + artifacts
-│   │   └── generation/            # prompt builder + retry loop + stub adapter
+│   │   ├── generation/            # prompt builder + retry loop + stub adapter
+│   │   └── data/
+│   │       └── cs_behaviours.py   # Civil Service behaviour descriptors per grade
 │   └── tests/
 │       ├── conftest.py            # ephemeral-schema fixture, csrf-aware client
 │       ├── unit/                  # crypto, word_count, adapters (mocked HTTP)
@@ -135,7 +145,9 @@ joblab/
 │   │   │   ├── Sidebar.tsx
 │   │   │   ├── Topbar.tsx
 │   │   │   ├── ThemeToggle.tsx
-│   │   │   └── ArtifactViewer.tsx
+│   │   │   ├── ArtifactViewer.tsx
+│   │   │   ├── CvImportButton.tsx # wiki PDF import trigger + result summary
+│   │   │   └── NoProviderBanner.tsx # site-wide amber strip when default_provider unset
 │   │   └── routes/
 │   │       ├── layout.tsx         # protected layout (regular + adminOnly)
 │   │       ├── login.tsx
@@ -163,7 +175,7 @@ docker compose exec api alembic upgrade head
 docker compose exec api python /app/scripts/seed_admin.py
 
 # Run tests
-docker compose exec api pytest -q        # backend (~77 tests, ~25s)
+docker compose exec api pytest -q        # backend (~103 tests, ~32s)
 cd web && pnpm install && pnpm test:e2e  # frontend (after pnpm test:e2e:install one-off)
 ```
 
@@ -247,6 +259,18 @@ cd web && pnpm install && pnpm test:e2e  # frontend (after pnpm test:e2e:install
 - **CSRF cookie domain.** Local dev uses `localhost` so cookies are visible
   across `:5173` ↔ `:8010`. In production, put api and web behind the same
   hostname (reverse proxy) so the SPA can read the CSRF cookie.
+- **`JOBLAB_TEST_MODE` must be 0 in production.** The docker-compose reads this
+  from the host shell (`${JOBLAB_TEST_MODE:-0}`), which means if you ever run
+  the backend test suite in the same shell, the container will bake in `=1` and
+  all generation calls will return EchoAdapter stub output (13 words, no LLM
+  call). Always set `JOBLAB_TEST_MODE=0` explicitly in `.env`.
+- **`ArtifactRead` must use `model_validate(artifact, from_attributes=True)`.**
+  Never build it with an explicit constructor — the field list will drift when
+  columns are added. The generation and applications routers both use
+  `model_validate`; keep it that way.
+- **Adding a field to `ArtifactRead` requires a default.** Optional columns like
+  `grade: str | None` MUST have `= None` in the Pydantic schema or existing
+  rows (before the migration) will fail serialisation with "field required".
 - **Postgres enums need `values_callable`.** SQLAlchemy by default sends the
   Python enum *name* (e.g. `OPENAI`) but our Postgres enum types store the
   *value* (`openai`). Any new enum column MUST be declared with

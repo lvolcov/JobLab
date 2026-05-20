@@ -125,3 +125,43 @@ async def test_cross_user_access_returns_404(
 
 async def test_unauthenticated_wiki_requires_auth(client: AsyncClient) -> None:
     assert (await client.get("/wiki/cvs")).status_code == 401
+
+
+async def test_experiences_returned_in_date_descending_order(
+    client: AsyncClient, regular_user: User
+) -> None:
+    """Experiences with a start date are returned newest first."""
+    client.cookies.update(auth_cookie(regular_user))
+    # Create three experiences out of order
+    for title, start in [("Old job", "2018-01-01"), ("New job", "2023-06-01"), ("Middle job", "2020-03-01")]:
+        r = await client.post(
+            "/wiki/experiences",
+            json={"title": title, "employer": "Acme", "start": start},
+        )
+        assert r.status_code == 201, r.text
+
+    r = await client.get("/wiki/experiences")
+    assert r.status_code == 200
+    titles = [e["title"] for e in r.json()]
+    # Ensure New job comes before Middle job which comes before Old job
+    assert titles.index("New job") < titles.index("Middle job")
+    assert titles.index("Middle job") < titles.index("Old job")
+
+
+async def test_projects_returned_in_date_descending_order(
+    client: AsyncClient, regular_user: User
+) -> None:
+    """Projects with a start date are returned newest first."""
+    client.cookies.update(auth_cookie(regular_user))
+    for name, start in [("Project A", "2020-01-01"), ("Project B", "2024-01-01"), ("Project C", "2022-01-01")]:
+        r = await client.post(
+            "/wiki/projects",
+            json={"name": name, "start": start},
+        )
+        assert r.status_code == 201, r.text
+
+    r = await client.get("/wiki/projects")
+    assert r.status_code == 200
+    names = [p["name"] for p in r.json()]
+    assert names.index("Project B") < names.index("Project C")
+    assert names.index("Project C") < names.index("Project A")

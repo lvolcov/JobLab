@@ -122,17 +122,25 @@ POST /applications/{app_id}/generate
 {
   "type": "cv | cover_letter | blind_cv | behaviour",
   "provider": "openai | anthropic | gemini",
-  "word_limit": 250,             // optional; defaults: cv 800, cover_letter 400, blind_cv 800, behaviour 250
-  "extra_instructions": "",      // optional; forwarded into the prompt
-  "behaviour_name": "Leadership" // required when type=behaviour, else null
+  "word_limit": 250,                     // optional; defaults: cv 800, cover_letter 400, blind_cv 800, behaviour 250
+  "extra_instructions": "",              // optional; forwarded into the prompt
+  "behaviour_name": "Leadership",        // required when type=behaviour, else null
+  "grade": "Grade 7"                     // optional; injects Civil Service grade-specific descriptors
 }
 ```
 
 Rate limited to **20 per hour** per remote IP. Returns `400` if the user has
 no own or assigned key for the chosen provider. Persists an
-`application_artifacts` row with `attempts`, `final_word_count`, and
-`warning_flag`. After 3 attempts above the limit, returns the shortest with
-`warning_flag=true`.
+`application_artifacts` row with `attempts`, `final_word_count`, `warning_flag`,
+`behaviour_name`, and `grade`. After 3 attempts above the limit, returns the
+shortest with `warning_flag=true`.
+
+`grade ∈ {EO, HEO, SEO, Grade 7, Grade 6}` — when supplied for a behaviour
+artifact, grade-specific Civil Service behaviour descriptors from
+`api/src/joblab_api/data/cs_behaviours.py` are injected into the system prompt.
+
+`GET /applications/{app_id}/artifacts` returns `ArtifactRead[]` including the
+`grade` field (nullable string, default `null`).
 
 ## Error format
 

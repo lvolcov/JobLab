@@ -70,6 +70,6 @@ class ArtifactRead(BaseModel):
     warning_flag: bool
     content: str
     extra_instructions: str
-    behaviour_name: str | None
-    grade: str | None
+    behaviour_name: str | None = None
+    grade: str | None = None
     created_at: datetime

@@ -25,8 +25,12 @@ def make_owner_router(
     CreateSchema: type[BaseModel],
     UpdateSchema: type[BaseModel],
     ReadSchema: type[BaseModel],
+    order_by_field: str | None = None,
 ) -> APIRouter:
-    """Build an APIRouter with list/create/get/update/delete bound to current user."""
+    """Build an APIRouter with list/create/get/update/delete bound to current user.
+
+    order_by_field: if set, sort by that column descending (nulls last), then created_at desc.
+    """
     router = APIRouter(prefix=prefix, tags=[tag])
 
     async def _get_owned_or_404(session, user_id: UUID, item_id: UUID) -> Any:
@@ -41,11 +45,13 @@ def make_owner_router(
 
     @router.get("", response_model=list[ReadSchema])
     async def list_(session: SessionDep, user: CurrentUser):  # type: ignore[no-untyped-def]
-        rows = (
-            await session.execute(
-                select(Model).where(Model.user_id == user.id).order_by(Model.created_at.desc())
-            )
-        ).scalars().all()
+        stmt = select(Model).where(Model.user_id == user.id)
+        if order_by_field and hasattr(Model, order_by_field):
+            col = getattr(Model, order_by_field)
+            stmt = stmt.order_by(col.desc().nulls_last(), Model.created_at.desc())
+        else:
+            stmt = stmt.order_by(Model.created_at.desc())
+        rows = (await session.execute(stmt)).scalars().all()
         return rows
 
     @router.post("", response_model=ReadSchema, status_code=status.HTTP_201_CREATED)

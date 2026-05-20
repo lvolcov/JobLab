@@ -53,17 +53,4 @@ async def generate(
             ),
         )
 
-    return ArtifactRead(
-        id=artifact.id,
-        application_id=artifact.application_id,
-        type=artifact.type,
-        provider=artifact.provider,
-        word_limit=artifact.word_limit,
-        attempts=artifact.attempts,
-        final_word_count=artifact.final_word_count,
-        warning_flag=artifact.warning_flag,
-        content=artifact.content,
-        extra_instructions=artifact.extra_instructions,
-        behaviour_name=artifact.behaviour_name,
-        created_at=artifact.created_at,
-    )
+    return ArtifactRead.model_validate(artifact, from_attributes=True)

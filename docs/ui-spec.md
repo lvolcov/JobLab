@@ -71,11 +71,20 @@ breakdown: new / flagged-duplicate / skipped. Rows in the list whose
 `possible_duplicate_of_id` is non-null carry an amber "Possible duplicate"
 badge inline with the title.
 
+**List item detail**: experiences and projects show a rich card:
+- Title + employer/role on the first line
+- Date range (`start – end | present`) on the second line
+- Summary (up to 180 chars, with expand/collapse chevron)
+- Achievements (up to 200 chars, with expand/collapse)
+Education and qualifications show their date inline. Skills show notes.
+All date-bearing entities are sorted **newest-first** (nulls last).
+
 ### `/applications`
 
-List of all applications with status chip. Inline "New application" form
-expands above the list. Status uses tonally-distinct chips
-(slate/blue/amber/emerald/red).
+List of all applications with status chip. Each list item shows: role title,
+company, status chip, and a 2-line truncated preview of the JD text (for quick
+context without opening the detail). Inline "New application" form expands above
+the list. Status uses tonally-distinct chips (slate/blue/amber/emerald/red).
 
 ### `/applications/:id`
 
@@ -83,10 +92,12 @@ Three sections:
 
 1. **Role details** — editable role/company/status/JD card; explicit Save
    button (no auto-save) so unintended JD edits don't silently propagate.
-2. **Generate document** — type, provider, word_limit, extra_instructions,
-   behaviour_name (only when type=behaviour, required to enable submit).
-   The Generate button uses the **accent** colour to mark it as the costly
-   action.
+2. **Generate document** — type, provider, word_limit, extra_instructions.
+   When type=behaviour: a dropdown of all 9 standard CS behaviours
+   (`behaviour_name`, required) and a Grade dropdown (EO/HEO/SEO/Grade 7/Grade 6,
+   defaults to Grade 7). Grade injects grade-appropriate descriptors into the
+   prompt. The Generate button uses the **accent** colour to mark it as the
+   costly action.
 3. **Generated artifacts** — each `Artifact` rendered via `ArtifactViewer` with
    chips for type, behaviour name, provider, words used vs limit, attempts,
    plus a Copy button. If `warning_flag=true`, an amber banner explains the

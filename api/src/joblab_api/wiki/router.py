@@ -54,6 +54,7 @@ router.include_router(
         CreateSchema=EducationCreate,
         UpdateSchema=EducationUpdate,
         ReadSchema=EducationRead,
+        order_by_field="start",
     )
 )
 router.include_router(
@@ -64,6 +65,7 @@ router.include_router(
         CreateSchema=QualificationCreate,
         UpdateSchema=QualificationUpdate,
         ReadSchema=QualificationRead,
+        order_by_field="date_awarded",
     )
 )
 router.include_router(
@@ -84,6 +86,7 @@ router.include_router(
         CreateSchema=ProjectCreate,
         UpdateSchema=ProjectUpdate,
         ReadSchema=ProjectRead,
+        order_by_field="start",
     )
 )
 router.include_router(
@@ -94,5 +97,6 @@ router.include_router(
         CreateSchema=ExperienceCreate,
         UpdateSchema=ExperienceUpdate,
         ReadSchema=ExperienceRead,
+        order_by_field="start",
     )
 )

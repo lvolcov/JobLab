@@ -109,20 +109,4 @@ async def list_artifacts(
             .order_by(ApplicationArtifact.created_at.desc())
         )
     ).scalars().all()
-    return [
-        ArtifactRead(
-            id=r.id,
-            application_id=r.application_id,
-            type=r.type,
-            provider=r.provider,
-            word_limit=r.word_limit,
-            attempts=r.attempts,
-            final_word_count=r.final_word_count,
-            warning_flag=r.warning_flag,
-            content=r.content,
-            extra_instructions=r.extra_instructions,
-            behaviour_name=r.behaviour_name,
-            created_at=r.created_at,
-        )
-        for r in rows
-    ]
+    return [ArtifactRead.model_validate(r, from_attributes=True) for r in rows]

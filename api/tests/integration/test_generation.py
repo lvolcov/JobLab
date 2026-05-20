@@ -227,6 +227,89 @@ async def test_blind_cv_redacts_institution_from_wiki(
     assert "Hogwarts" in stub2.calls[0]["prompt"]
 
 
+# ---------------- grade + ArtifactRead completeness ----------------
+
+
+async def test_behaviour_grade_returned_in_artifact(
+    client: AsyncClient, regular_user: User, stub_adapter
+) -> None:
+    """grade is stored and returned in the artifact response."""
+    stub_adapter("Behaviour example showing Grade 7 competencies.")
+    app_id = await _seed_user_with_key_and_app(client, regular_user)
+    r = await client.post(
+        f"/applications/{app_id}/generate",
+        json={
+            "type": "behaviour",
+            "provider": "openai",
+            "behaviour_name": "Leadership",
+            "grade": "Grade 7",
+        },
+    )
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["grade"] == "Grade 7"
+    assert body["behaviour_name"] == "Leadership"
+
+
+async def test_grade_context_injected_into_behaviour_prompt(
+    client: AsyncClient, regular_user: User, stub_adapter
+) -> None:
+    """Grade-specific descriptors appear in the prompt when grade is supplied."""
+    stub = stub_adapter("OK result")
+    app_id = await _seed_user_with_key_and_app(client, regular_user)
+    await client.post(
+        f"/applications/{app_id}/generate",
+        json={
+            "type": "behaviour",
+            "provider": "openai",
+            "behaviour_name": "Making Effective Decisions",
+            "grade": "Grade 7",
+        },
+    )
+    sent_prompt = stub.calls[0]["prompt"]
+    # The CS behaviours module should inject grade-level descriptors
+    assert "Grade 7" in sent_prompt
+    assert "Making Effective Decisions" in sent_prompt
+
+
+async def test_artifact_read_includes_all_fields(
+    client: AsyncClient, regular_user: User, stub_adapter
+) -> None:
+    """ArtifactRead response contains every expected field including grade."""
+    stub_adapter("short result")
+    app_id = await _seed_user_with_key_and_app(client, regular_user)
+    r = await client.post(
+        f"/applications/{app_id}/generate",
+        json={"type": "cv", "provider": "openai", "word_limit": 50, "grade": None},
+    )
+    assert r.status_code == 201, r.text
+    body = r.json()
+    required_fields = {
+        "id", "application_id", "type", "provider", "word_limit",
+        "attempts", "final_word_count", "warning_flag", "content",
+        "extra_instructions", "behaviour_name", "grade", "created_at",
+    }
+    for field in required_fields:
+        assert field in body, f"Missing field: {field}"
+
+
+async def test_artifacts_list_serialises_grade(
+    client: AsyncClient, regular_user: User, stub_adapter
+) -> None:
+    """GET /applications/{id}/artifacts returns grade in each artifact."""
+    stub_adapter("content")
+    app_id = await _seed_user_with_key_and_app(client, regular_user)
+    await client.post(
+        f"/applications/{app_id}/generate",
+        json={"type": "behaviour", "provider": "openai", "behaviour_name": "Leadership", "grade": "SEO"},
+    )
+    r = await client.get(f"/applications/{app_id}/artifacts")
+    assert r.status_code == 200, r.text
+    artifacts = r.json()
+    assert len(artifacts) == 1
+    assert artifacts[0]["grade"] == "SEO"
+
+
 # ---------------- cross-user isolation ----------------
 
 

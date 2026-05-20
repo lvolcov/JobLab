@@ -51,9 +51,12 @@ joblab_api/
 ├── llm/                    # provider abstraction + adapters + key vault
 ├── wiki/                   # six entities behind one generic CRUD factory;
 │                           # also CV-import pipeline (PDF → LLM JSON → dedup → rows)
+│                           # lists sorted by date (start/date_awarded) desc, nulls last
 ├── documents/              # uploads + text extraction (pdf, docx, txt, md)
 ├── applications/           # per-role records + artifact persistence
-└── generation/             # prompt assembly + retry loop
+├── generation/             # prompt assembly + retry loop
+└── data/
+    └── cs_behaviours.py    # Civil Service behaviour descriptors per grade (EO…Grade 6)
 ```
 
 ### CV-import pipeline (`wiki/import_*`)
@@ -155,7 +158,7 @@ applications(id PK, user_id FK users.id, role_title, company, jd_text, status,
 
 application_artifacts(id PK, application_id FK applications.id, type, provider,
                       word_limit, attempts, final_word_count, warning_flag,
-                      content, extra_instructions, behaviour_name, created_at)
+                      content, extra_instructions, behaviour_name, grade, created_at)
 ```
 
 All foreign keys are `ON DELETE CASCADE` so deleting a user wipes their wiki,
