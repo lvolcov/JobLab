@@ -168,15 +168,20 @@ export default function ApplicationsPage() {
                   className="flex items-center justify-between gap-4 px-5 py-4 transition-colors duration-150 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer"
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-950/40 dark:text-brand-300">
+                    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-950/40 dark:text-brand-300">
                       <Briefcase className="h-4 w-4" />
                     </span>
                     <div className="min-w-0">
                       <p className="truncate font-medium">{a.role_title}</p>
                       <p className="truncate text-sm text-muted">{a.company || "—"}</p>
+                      {a.jd_text && (
+                        <p className="mt-0.5 line-clamp-2 text-xs text-muted opacity-75">
+                          {a.jd_text.replace(/\s+/g, " ").slice(0, 200)}
+                        </p>
+                      )}
                     </div>
                   </div>
-                  <span className={`chip border-transparent ${STATUS_CLASS[a.status]}`}>
+                  <span className={`chip shrink-0 border-transparent ${STATUS_CLASS[a.status]}`}>
                     {a.status}
                   </span>
                 </Link>

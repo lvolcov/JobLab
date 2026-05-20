@@ -142,6 +142,7 @@ export interface Artifact {
   content: string;
   extra_instructions: string;
   behaviour_name: string | null;
+  grade: string | null;
   created_at: string;
 }
 

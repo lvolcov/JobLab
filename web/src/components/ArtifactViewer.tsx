@@ -36,6 +36,9 @@ export function ArtifactViewer({ artifact }: { artifact: Artifact }) {
           {artifact.behaviour_name && (
             <span className="chip">{artifact.behaviour_name}</span>
           )}
+          {artifact.grade && (
+            <span className="chip">{artifact.grade}</span>
+          )}
           <span className="chip">{PROVIDER_LABEL[artifact.provider]}</span>
           <span className="chip">
             {artifact.final_word_count}/{artifact.word_limit} words

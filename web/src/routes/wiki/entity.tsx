@@ -4,7 +4,7 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Pencil, Plus, Trash2, X } from "lucide-react";
+import { AlertTriangle, Calendar, ChevronDown, ChevronUp, Pencil, Plus, Trash2, X } from "lucide-react";
 import {
   Button,
   EmptyState,
@@ -104,6 +104,168 @@ const CONFIGS: Record<string, EntityConfig> = {
 
 function emptyForm(cfg: EntityConfig): Record<string, string> {
   return Object.fromEntries(cfg.fields.map((f) => [f.name, ""]));
+}
+
+function formatDate(d: string | null | undefined): string {
+  if (!d) return "";
+  try {
+    return new Date(d).toLocaleDateString("en-GB", { year: "numeric", month: "short" });
+  } catch {
+    return String(d);
+  }
+}
+
+function DateRange({ start, end }: { start?: string | null; end?: string | null }) {
+  if (!start && !end) return null;
+  const s = start ? formatDate(start) : "?";
+  const e = end ? formatDate(end) : "present";
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-muted">
+      <Calendar className="h-3 w-3" />
+      {s} – {e}
+    </span>
+  );
+}
+
+function Truncated({ text, maxChars = 200 }: { text: string; maxChars?: number }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!text) return null;
+  if (text.length <= maxChars) return <span className="whitespace-pre-line">{text}</span>;
+  return (
+    <span>
+      <span className="whitespace-pre-line">{expanded ? text : text.slice(0, maxChars) + "…"}</span>
+      <button
+        type="button"
+        onClick={() => setExpanded((x) => !x)}
+        className="ml-1 inline-flex items-center gap-0.5 text-xs text-brand-600 hover:underline dark:text-brand-400"
+      >
+        {expanded ? (
+          <><ChevronUp className="h-3 w-3" /> less</>
+        ) : (
+          <><ChevronDown className="h-3 w-3" /> more</>
+        )}
+      </button>
+    </span>
+  );
+}
+
+function WikiRow({
+  row,
+  cfg,
+  entity,
+  onEdit,
+  onDelete,
+}: {
+  row: WikiBaseRow;
+  cfg: EntityConfig;
+  entity: string;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const isRich = entity === "experiences" || entity === "projects";
+
+  return (
+    <li className="surface p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          {/* Title row */}
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-medium leading-snug">
+              {String(row[cfg.primary] ?? "—")}
+            </p>
+            {row.possible_duplicate_of_id && (
+              <span
+                title="An AI import flagged this as a likely duplicate of an existing entry."
+                className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+              >
+                <AlertTriangle className="h-3 w-3" />
+                Possible duplicate
+              </span>
+            )}
+          </div>
+
+          {/* Secondary + date */}
+          <div className="mt-0.5 flex flex-wrap items-center gap-3">
+            {cfg.secondary && row[cfg.secondary] != null && (
+              <p className="text-sm text-muted">
+                {String(row[cfg.secondary])}
+              </p>
+            )}
+            {isRich && (
+              <DateRange
+                start={(row.start as string | null | undefined)}
+                end={(row.end as string | null | undefined)}
+              />
+            )}
+            {entity === "education" && (row.start != null || row.end != null) && (
+              <DateRange
+                start={(row.start as string | null | undefined)}
+                end={(row.end as string | null | undefined)}
+              />
+            )}
+            {entity === "qualifications" && row.date_awarded != null && (
+              <span className="inline-flex items-center gap-1 text-xs text-muted">
+                <Calendar className="h-3 w-3" />
+                {formatDate(String(row.date_awarded))}
+              </span>
+            )}
+          </div>
+
+          {/* Rich detail: summary + achievements */}
+          {isRich && (row.summary != null || row.achievements != null) && (
+            <div className="mt-2 space-y-1.5 border-t border-border pt-2">
+              {row.summary != null && String(row.summary) && (
+                <div className="text-sm text-muted">
+                  <Truncated text={String(row.summary)} maxChars={180} />
+                </div>
+              )}
+              {row.achievements != null && String(row.achievements) && (
+                <div className="text-sm">
+                  <span className="mr-1 text-xs font-medium uppercase tracking-wide text-muted">Achievements</span>
+                  <Truncated text={String(row.achievements)} maxChars={200} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Skills notes */}
+          {entity === "skills" && row.notes != null && String(row.notes) && (
+            <p className="mt-1 text-xs text-muted">
+              <Truncated text={String(row.notes)} maxChars={120} />
+            </p>
+          )}
+
+          {/* Education / qualification details */}
+          {(entity === "education" || entity === "qualifications") && row.details != null && String(row.details) && (
+            <p className="mt-1 text-xs text-muted">
+              <Truncated text={String(row.details)} maxChars={120} />
+            </p>
+          )}
+        </div>
+
+        <div className="flex shrink-0 gap-1">
+          <button
+            type="button"
+            className="btn-ghost h-8 !px-2"
+            onClick={onEdit}
+            aria-label="Edit"
+            title="Edit"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="btn-ghost h-8 !px-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+            onClick={onDelete}
+            aria-label="Delete"
+            title="Delete"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </li>
+  );
 }
 
 export default function WikiEntityPage() {
@@ -212,53 +374,14 @@ function WikiEntityInner({ entity, cfg }: { entity: string; cfg: EntityConfig })
         {list.data && list.data.length > 0 && (
           <ul className="grid gap-3">
             {list.data.map((row) => (
-              <li key={row.id} className="surface p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate font-medium">
-                        {String(row[cfg.primary] ?? "—")}
-                      </p>
-                      {row.possible_duplicate_of_id && (
-                        <span
-                          title="An AI import flagged this as a likely duplicate of an existing entry."
-                          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
-                        >
-                          <AlertTriangle className="h-3 w-3" />
-                          Possible duplicate
-                        </span>
-                      )}
-                    </div>
-                    {cfg.secondary && (
-                      <p className="truncate text-sm text-muted">
-                        {String(row[cfg.secondary] ?? "")}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      className="btn-ghost h-8 !px-2"
-                      onClick={() => startEdit(row)}
-                      aria-label="Edit"
-                      title="Edit"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-ghost h-8 !px-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-                      onClick={() => {
-                        if (confirm("Delete this entry?")) remove.mutate(row.id);
-                      }}
-                      aria-label="Delete"
-                      title="Delete"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              </li>
+              <WikiRow
+                key={row.id}
+                row={row}
+                cfg={cfg}
+                entity={entity}
+                onEdit={() => startEdit(row)}
+                onDelete={() => { if (confirm("Delete this entry?")) remove.mutate(row.id); }}
+              />
             ))}
           </ul>
         )}

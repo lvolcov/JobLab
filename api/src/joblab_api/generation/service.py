@@ -84,6 +84,7 @@ async def generate_for_application(
             extra_instructions=request.extra_instructions,
             word_limit=word_limit,
             behaviour_name=request.behaviour_name,
+            grade=request.grade,
             retry_hint=retry_hint,
         )
         content = await adapter.generate(
@@ -119,6 +120,7 @@ async def generate_for_application(
         content=best_content,
         extra_instructions=request.extra_instructions,
         behaviour_name=request.behaviour_name,
+        grade=request.grade,
     )
     session.add(artifact)
     await session.commit()

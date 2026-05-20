@@ -301,6 +301,7 @@ function GeneratorCard({
   const [wordLimit, setWordLimit] = useState<number>(DEFAULT_LIMITS["cv"]);
   const [extras, setExtras] = useState("");
   const [behaviourName, setBehaviourName] = useState("");
+  const [grade, setGrade] = useState("Grade 7");
   const [error, setError] = useState<string | null>(null);
 
   // Adjust default word limit when type changes.
@@ -317,6 +318,7 @@ function GeneratorCard({
         word_limit: wordLimit,
         extra_instructions: extras,
         behaviour_name: type === "behaviour" ? behaviourName : null,
+        grade: type === "behaviour" ? grade : null,
       }),
     onSuccess: (a) => {
       onCreated(a);
@@ -377,14 +379,41 @@ function GeneratorCard({
           />
         </Field>
         {type === "behaviour" && (
-          <Field label="Behaviour name *" htmlFor="gen_behaviour" hint="e.g. Leadership">
-            <Input
-              id="gen_behaviour"
-              required
-              value={behaviourName}
-              onChange={(e) => setBehaviourName(e.target.value)}
-            />
-          </Field>
+          <>
+            <Field label="Behaviour *" htmlFor="gen_behaviour">
+              <Select
+                id="gen_behaviour"
+                value={behaviourName}
+                onChange={(e) => setBehaviourName(e.target.value)}
+              >
+                <option value="">— select behaviour —</option>
+                {[
+                  "Seeing the Big Picture",
+                  "Changing and Improving",
+                  "Making Effective Decisions",
+                  "Leadership",
+                  "Communicating and Influencing",
+                  "Working Together",
+                  "Developing Self and Others",
+                  "Managing a Quality Service",
+                  "Delivering at Pace",
+                ].map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Grade" htmlFor="gen_grade" hint="Grade-specific descriptors are injected into the prompt">
+              <Select
+                id="gen_grade"
+                value={grade}
+                onChange={(e) => setGrade(e.target.value)}
+              >
+                {["EO", "HEO", "SEO", "Grade 7", "Grade 6"].map((g) => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </Select>
+            </Field>
+          </>
         )}
         <div className="md:col-span-2">
           <Field
@@ -408,7 +437,7 @@ function GeneratorCard({
         <Button
           variant="accent"
           loading={run.isPending}
-          disabled={type === "behaviour" && !behaviourName.trim()}
+          disabled={type === "behaviour" && !behaviourName}
           onClick={() => run.mutate()}
         >
           <Sparkles className="h-4 w-4" /> Generate

@@ -33,3 +33,6 @@ test-results/
 playwright-report/
 blob-report/
 .playwright/
+
+# Example documents (personal data, not committed)
+example/

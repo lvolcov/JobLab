@@ -53,6 +53,10 @@ class GenerateRequest(BaseModel):
         default=None,
         description="Required when type='behaviour' (e.g. 'Leadership').",
     )
+    grade: str | None = Field(
+        default=None,
+        description="Civil Service grade for context (e.g. 'Grade 7', 'SEO'). Used to inject grade-appropriate behaviour descriptors.",
+    )
 
 
 class ArtifactRead(BaseModel):
@@ -67,4 +71,5 @@ class ArtifactRead(BaseModel):
     content: str
     extra_instructions: str
     behaviour_name: str | None
+    grade: str | None
     created_at: datetime

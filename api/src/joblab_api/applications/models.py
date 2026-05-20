@@ -85,6 +85,7 @@ class ApplicationArtifact(SQLModel, table=True):
     content: str = Field(default="", nullable=False)
     extra_instructions: str = Field(default="", nullable=False)
     behaviour_name: str | None = None
+    grade: str | None = None
     created_at: datetime = Field(
         default_factory=_utcnow, sa_column=Column(DateTime(timezone=True), nullable=False)
     )
